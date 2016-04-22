@@ -92,10 +92,17 @@
             >
 
             <Button
-                android:id="@+id/refresh_readings"
+                android:id="@+id/step_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="right"
+                android:layout_weight="0.5"
+                android:text="Make Step"/>
+
+            <Button
+                android:id="@+id/refresh_readings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_weight="0.5"
                 android:text="Refresh Readings"/>
 

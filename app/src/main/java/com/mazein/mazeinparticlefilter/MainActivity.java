@@ -229,7 +229,7 @@ public class MainActivity
         FingerprintStore.loadFingerprints_4Wifi(this);
 
         // TODO: Change Initial Measurement Vector length
-        current = new MeasurementVector(0.0, 0.0, 0.0);
+        current = new MeasurementVector(-100.0, -100.0, -100.0, -100.0);
         mSensorUnit = new SensorUnit(this);
         mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
 
@@ -288,18 +288,18 @@ public class MainActivity
 
         registerReceiver(mBroadcastReceiver, mIntentFilter);
 
-//        final Button step = (Button)findViewById(R.id.step_button);
-//        step.setOnClickListener(new View.OnClickListener()
-//        {
-//            @Override
-//            public void onClick(View v)
-//            {
-//                step.setClickable(false);
-//                onStepDetected(SensorUnit.getSensorData());
-//                step.setClickable(true);
-//                REFRESHING = false;
-//            }
-//        });
+        final Button step = (Button) findViewById(R.id.step_button);
+        step.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                step.setClickable(false);
+                onStepDetected(SensorUnit.getSensorData());
+                step.setClickable(true);
+                REFRESHING = false;
+            }
+        });
         final Button refresh = (Button) findViewById(R.id.refresh_readings);
         refresh.setOnClickListener(new View.OnClickListener()
         {
