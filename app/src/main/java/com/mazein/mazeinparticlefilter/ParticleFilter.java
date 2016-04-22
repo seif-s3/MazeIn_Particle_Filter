@@ -11,12 +11,14 @@ public class ParticleFilter
 {
     public Particle[] particles;
 
-    public ParticleFilter(int particleCount, float MAX_X, float MAX_Y)
+    public ParticleFilter(int particleCount, double MAX_X, double MAX_Y,
+                          double currentHeading)
     {
         particles = new Particle[particleCount];
         for(int i=0; i<particleCount; i++)
         {
-            particles[i] = new Particle(MAX_X, MAX_Y);
+            particles[i] = new Particle(MAX_X, MAX_Y, currentHeading);
+            particles[i].weight = (1.0 / particleCount);
         }
     }
 
@@ -81,17 +83,23 @@ public class ParticleFilter
         float x = 0;
         float y = 0;
         float heading = 0;
-
+        // Normalize Weights:
+        double sumW = 0.0;
         for(Particle p : particles)
         {
+            sumW += p.weight;
+        }
+        for (Particle p : particles)
+        {
+            p.weight /= sumW;
             x += p.weight * p.state.x;
             y += p.weight * p.state.y;
             heading += p.weight * p.state.heading;
         }
-        x/= particles.length;
-        y/=particles.length;
-        heading/=particles.length;
-        // Reported Location
+//        x/= particles.length;
+//        y/=particles.length;
+//        heading/=particles.length;
+//        // Reported Location
         return new State(x,y,heading);
     }
 

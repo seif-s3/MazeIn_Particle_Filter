@@ -13,6 +13,9 @@ import android.util.Log;
 public class SensorUnit implements SensorEventListener
 {
     public static final String LOG_TAG = "SensorUnit";
+    private static SensorData mSensorData;
+    float[] inR = new float[16];
+    float[] I = new float[16];
     private SensorManager mSensorManager = null;
     private boolean isPositioningOn = false;
     private Context context;
@@ -20,13 +23,26 @@ public class SensorUnit implements SensorEventListener
     private float rotationMatrix[] = new float[9];
     private float rotationAngle = (float) (180.0 / Math.PI);
     private int mDataReady;
-    private static SensorData mSensorData;
     private IStepTrigger mStepListener;
+
     public SensorUnit(Context ctx)
     {
         this.context = ctx;
         mSensorData = new SensorData();
         mSensorManager = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
+    }
+
+    public static SensorData getSensorData()
+    {
+        return mSensorData;
+    }
+
+    public static double getMagneticMagnitude()
+    {
+        return Math.sqrt(mSensorData.mag[0] * mSensorData.mag[0]
+                + mSensorData.mag[1] * mSensorData.mag[1]
+                + mSensorData.mag[2] * mSensorData.mag[2]
+        );
     }
 
     /**
@@ -90,6 +106,29 @@ public class SensorUnit implements SensorEventListener
     @Override
     public void onSensorChanged(SensorEvent event)
     {
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+        {
+            mSensorData.mag[0] = event.values[0];
+            mSensorData.mag[1] = event.values[1];
+            mSensorData.mag[2] = event.values[2];
+        }
+
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+        {
+            float alpha = 0.8f;
+
+            mSensorData.acc[0] = alpha * mSensorData.acc[0] + (1 - alpha) * event.values[0];
+            mSensorData.acc[1] = alpha * mSensorData.acc[1] + (1 - alpha) * event.values[1];
+            mSensorData.acc[2] = alpha * mSensorData.acc[2] + (1 - alpha) * event.values[2];
+        }
+
+        rotationMatrix = new float[16];
+        SensorManager.getRotationMatrix(rotationMatrix, null, mSensorData.acc, mSensorData.mag);
+        SensorManager.getOrientation(rotationMatrix, mSensorData.ori);
+
+        //double Heading=vals[0] * (180/Math.PI);
+
+        /*
         switch (event.sensor.getType())
         {
             case Sensor.TYPE_ROTATION_VECTOR: {
@@ -101,13 +140,13 @@ public class SensorUnit implements SensorEventListener
                 // no break, fall through
             }
 
-            case Sensor.TYPE_ORIENTATION:
-                mSensorData.ori[0] = event.values[0];
-                mSensorData.ori[1] = event.values[1];
-                mSensorData.ori[2] = event.values[2];
-                mDataReady |= 1;
-                //triggerOrientationListeners(mSensorData.ori);
-                break;
+//            case Sensor.TYPE_ORIENTATION:
+//                mSensorData.ori[0] = event.values[0];
+//                mSensorData.ori[1] = event.values[1];
+//                mSensorData.ori[2] = event.values[2];
+//                mDataReady |= 1;
+//                //triggerOrientationListeners(mSensorData.ori);
+//                break;
 
             case Sensor.TYPE_GYROSCOPE:
                 mSensorData.gyr[0] = event.values[0];
@@ -140,12 +179,24 @@ public class SensorUnit implements SensorEventListener
                 break;
 
         }
+
+        if(mSensorData.acc != null && mSensorData.mag != null)
+        {
+            boolean success = SensorManager.getRotationMatrix(inR, I,
+                    mSensorData.acc, mSensorData.mag);
+            if (success)
+            {
+                SensorManager.getOrientation(inR, mSensorData.ori);
+            }
+        }
+        */
     }
 
     public void registerStepListner(IStepTrigger listener)
     {
         mStepListener = listener;
     }
+
     /**
      * Get MagnetismInformation
      *
@@ -164,11 +215,6 @@ public class SensorUnit implements SensorEventListener
      */
     public float getRAWHeading() {
         return mSensorData.ori[0];
-    }
-
-    public static SensorData getSensorData()
-    {
-        return mSensorData;
     }
 
     @Override

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/reset_file"
+        android:title="Reset Fingerprints File"
+        />
+    <item
+        android:id="@+id/send_file"
+        android:title="Email Fingerprints"
+        />
+    <item
+        android:id="@+id/reload_webview"
+        android:title="Reload Map"
+        />
+</menu>

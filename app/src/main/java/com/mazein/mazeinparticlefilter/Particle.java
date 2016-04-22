@@ -1,5 +1,7 @@
 package com.mazein.mazeinparticlefilter;
 
+import android.util.Log;
+
 import java.util.Random;
 
 /**
@@ -7,31 +9,28 @@ import java.util.Random;
  */
 public class Particle
 {
+    static Random randomizer = new Random();
+    final double N_DIMENSIONS = 3; // Dimensions of observation (measurements)
     State state;
     double weight;
-    double stepLength =0.5d;
-    final double N_DIMENSIONS = 3; // Dimensions of observation (measurements)
-    static Random randomizer = new Random();
+    double stepLength = 0.75d;
+    double MAX_X, MAX_Y;
+    private State previousState; // Used in measurement model eq 9
 
-    private Particle previous; // Used in measurement model eq 9
-
-    public Particle(float MAX_X, float MAX_Y)
+    public Particle(double mx, double my, double currentHeading)
     {
+        this.MAX_X = mx;
+        this.MAX_Y = my;
         // Initialize Random Particles
         this.state = new State();
-        state.x = randomizer.nextGaussian() * MAX_X;
-        state.y = randomizer.nextGaussian() * MAX_Y;
-        state.heading = randomizer.nextDouble() % (180.0 / Math.PI);
+        state.x = randomizer.nextDouble() * this.MAX_X;
+        state.y = randomizer.nextDouble() * this.MAX_Y;
+        state.heading = currentHeading; // in degrees
+        this.previousState = new State();
         weight = 1;
     }
 
     public Particle(State s, double w)
-    {
-        this.state = s;
-        this.weight = w;
-    }
-
-    public Particle(State s, double w, State prev, double prev_w)
     {
         this.state = s;
         this.weight = w;
@@ -43,40 +42,72 @@ public class Particle
         return new Random().nextGaussian() * Math.sqrt(var) + mean;
     }
 
-    public void motionModelUpdate(SensorData newVals, double mean, double var)
+    public void motionModelUpdate(double deltaHeading, double mean, double var)
     {
         //heading = heading + (Change in heading from newVals) + noise()
-        if(this.previous == null)
+        if (this.previousState == null)  //initial state
         {
             Random randomizer = new Random();
-            this.state.heading = (this.state.heading +
-                Math.abs(newVals.ori[0] - (randomizer.nextDouble() % (180/Math.PI)) )
-                + noise(var, mean)) % (float)(180.0 / Math.PI);
-
-            this.state.x = this.state.x + Math.cos(this.state.heading)
-                    * (stepLength + noise(1.0d, 0.0d));
-
-            this.state.y = this.state.y + Math.sin(this.state.heading)
-                    * (stepLength + noise(1.0d, 0.0d));
-            return;
+            State previousState = new State();
+            previousState.heading = randomizer.nextDouble() * 360;
+            previousState.x = this.state.x;
+            previousState.y = this.state.y;
         }
-
-        this.state.heading = (this.state.heading +
-                Math.abs(newVals.ori[0] - previous.state.heading)
-                + noise(var, mean)) % (float)(180.0 / Math.PI);
+        else
+        {
+            previousState.heading = this.state.heading;
+            previousState.x = this.state.x;
+            previousState.y = this.state.y;
+        }
+        // TODO TODO TODO
+        this.state.heading = (this.state.heading +  //new heading in degrees
+                deltaHeading
+                + noise(var, mean) * 0) % (180); //changed to 180
         // Get Step Length from newVals
         // x = x + cos(newHeading) * (stepLen + noise())
         // y = y + sin(newHeading) * (stepLen + noise())
-        this.state.x = this.state.x + Math.cos(this.state.heading)
-                * (stepLength + noise(1.0d, 0.0d));
+        this.state.x = this.state.x + Math.cos(Math.toRadians(this.state.heading))
+                * (stepLength + noise(1.0d, 0.0d));  //TODO check noise value
 
-        this.state.y = this.state.y + Math.sin(this.state.heading)
+        this.state.y = this.state.y + Math.sin(Math.toRadians(this.state.heading))
                 * (stepLength + noise(1.0d, 0.0d));
     }
 
+    public void updateWeight2(double[][] MEASUREMENT_CHANGE)
+    {
+        //difference between this state and previous one observations
+        MeasurementVector particleMeasureUpdate = FingerprintStore.obv(this.state).minus(FingerprintStore.obv(previousState));
+        //difference between the difference in observation and difference in measurements which indicates the error
+        double[][] errorVector = MatrixOps.minus(particleMeasureUpdate.toMatrix(), MEASUREMENT_CHANGE);
+        //Exponential of the error indicates the weight
+
+        this.weight = Math.pow(Math.E, -MatrixOps.vectorNorm(errorVector));
+
+        return;
+    }
+
+    public void updateWeight3(double[][] CURRENT_MEASUREMENT)
+    {
+        // Updates weights without checking previous state.
+        double[][] errorVector = MatrixOps.minus(CURRENT_MEASUREMENT,
+                FingerprintStore.obv(this.state).toMatrix());
+
+        if (this.state.x > MAX_X || this.state.x < 0 || this.state.y > MAX_Y || this.state.y < 0)
+        {
+            this.weight = 0;
+        }
+        else
+        {
+            this.weight = Math.pow(Math.E, -MatrixOps.vectorNorm(errorVector));
+        }
+
+        return;
+    }
+
+
+
     public void updateWeight(double[][] MEASUREMENT_CHANGE)
     {
-        previous = this.clone();
         // Measurement Model update (eq 9 Maloc)
         // Database queries go here
         // Covariance???
@@ -87,29 +118,35 @@ public class Particle
         // OBS_CHANGE       =>  obv(s(t+1)) - obv(s(t))
 
         //double[][] MEASUREMENT_CHANGE = (current.minus(prev).toMatrix());
-        double[][] OBS_CHANGE = (FingerprintStore.obv(this.state).minus(FingerprintStore.obv(previous.state))).toMatrix();
-        // TODO: Implement transpose, inverse, matrix multiplication
+        double[][] OBS_CHANGE = (FingerprintStore.obv(this.state).minus(FingerprintStore.obv(previousState))).toMatrix();
+
         //double[][] inverseCov = MatrixOps.invert(FingerprintStore.covarianceMat);
 
         double[][] first_mult = MatrixOps.trasposeMatrix(MatrixOps.minus(MEASUREMENT_CHANGE, OBS_CHANGE));
 //        Log.d("first_mult", first_mult.toString());
 
-//        Log.d("sec_mult", FingerprintStore.sec_mult.toString());
+//        Log.d("invCov", FingerprintStore.invCov.toString());
+        // third_mult is the error value (vector of 3 elements)
+
         double[][] third_mult = MatrixOps.minus(MEASUREMENT_CHANGE, OBS_CHANGE);
+//        double error_mag =    Math.sqrt(third_mult[0][0] * third_mult[0][0]
+//                            + third_mult[1][0] * third_mult[1][0]
+//                            + third_mult[2][0] * third_mult[2][0]);
+//
+//        this.weight = Math.pow(Math.E, -16.0 * error_mag);
+
 //        Log.d("third_mult", third_mult.toString());
-        double[][] EXP = MatrixOps.multiply(MatrixOps.multiply(first_mult, FingerprintStore.sec_mult)
+        double[][] EXP = MatrixOps.multiply(
+                MatrixOps.multiply(first_mult, FingerprintStore.invCov)
                 , third_mult);
-//        Log.d("EXP", EXP.toString());
+        Log.d("EXP", String.valueOf(EXP[0][0]));
 
         this.weight = FIRST_TERM * Math.pow(Math.E, -0.5 * EXP[0][0]);
-    }
 
 
-    @Override
-    protected Particle clone()
-    {
-        return new Particle(this.state, this.weight);
+        return;
     }
+
 
     @Override
     public String toString()

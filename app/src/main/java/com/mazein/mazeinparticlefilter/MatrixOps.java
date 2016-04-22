@@ -180,4 +180,17 @@ public class MatrixOps
 
         return  ret;
     }
+
+    public static double vectorNorm(double[][] A)
+    {
+        double acc = 0.0;
+        if (A[0].length == 1)
+        {
+            for (int i = 0; i < A[0].length; i++)
+            {
+                acc += A[i][0] * A[i][0];
+            }
+        }
+        return Math.sqrt(acc);
+    }
 }
